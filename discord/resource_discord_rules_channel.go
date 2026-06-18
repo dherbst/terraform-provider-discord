@@ -47,11 +47,15 @@ func resourceRulesChannelCreate(ctx context.Context, d *schema.ResourceData, m i
 
 	serverId := d.Get("server_id").(string)
 
-	if _, err := client.Guild(serverId, discordgo.WithContext(ctx)); err != nil {
+	server, err := client.Guild(serverId, discordgo.WithContext(ctx))
+	if err != nil {
 		return diag.Errorf("Failed to find server: %s", err.Error())
 	}
 
 	params := &discordgo.GuildParams{
+		// Discord only honors rules_channel_id when the COMMUNITY feature is present
+		// in the same Modify Guild request, so pass the guild's current features through.
+		Features:       server.Features,
 		RulesChannelID: d.Get("rules_channel_id").(string),
 	}
 	if _, err := client.GuildEdit(serverId, params, discordgo.WithContext(ctx)); err != nil {
@@ -85,12 +89,15 @@ func resourceRulesChannelUpdate(ctx context.Context, d *schema.ResourceData, m i
 	client := m.(*Context).Session
 
 	serverId := d.Get("server_id").(string)
-	if _, err := client.Guild(serverId, discordgo.WithContext(ctx)); err != nil {
+	server, err := client.Guild(serverId, discordgo.WithContext(ctx))
+	if err != nil {
 		return diag.Errorf("Error fetching server: %s", err.Error())
 	}
 
 	if d.HasChange("rules_channel_id") {
 		params := &discordgo.GuildParams{
+			// rules_channel_id is only honored alongside the COMMUNITY feature.
+			Features:       server.Features,
 			RulesChannelID: d.Get("rules_channel_id").(string),
 		}
 		if _, err := client.GuildEdit(serverId, params, discordgo.WithContext(ctx)); err != nil {
